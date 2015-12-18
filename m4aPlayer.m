@@ -19,10 +19,7 @@ static NSOperationQueue *globalOperationQueue;
   NSData *data;
   size_t validLength;
 }
-
 @property (nonatomic) size_t validLength;
-- (NSUInteger)length;
-- (void *)bytes;
 @end
 
 @implementation NSValidData
@@ -32,7 +29,7 @@ static NSOperationQueue *globalOperationQueue;
   self = [super init];
   if (self != nil) {
     data = [[NSData alloc] initWithBytesNoCopy:bytes length:length];
-    self.validLength = 0;
+    validLength = 0;
   }
   return self;
 }
@@ -78,7 +75,7 @@ typedef struct _m4aPlayer {
   NSString *basePath;
   
   // the set of currently queued or executing operations on behalf of this object
-  NSMutableSet *outstandingOperations;
+  NSMutableArray *outstandingOperations;
   
   int numChannels;
   BOOL isPlaying;
@@ -113,7 +110,8 @@ static void *m4aPlayer_new(t_symbol *s, int argc, t_atom *argv) {
     x->bufferB = nil;
     x->currentBuffer = nil;
     
-    x->outstandingOperations = [[NSMutableSet alloc] init];
+//    x->outstandingOperations = [[NSMutableSet alloc] init];
+    x->outstandingOperations = [[NSMutableArray alloc] init];
 
     dispatch_once(&once, ^{
       globalOperationQueue = [[NSOperationQueue alloc] init];
@@ -138,7 +136,7 @@ static void m4aPlayer_free(t_m4aPlayer *x) {
   x->shouldLoop = NO;
   x->shouldReprimeOnFinish = NO;
   // NSMutableSet would be modified as operations are cancelled
-  for (NSOperation *operation in [NSSet setWithSet:x->outstandingOperations]) {
+  for (NSOperation *operation in [NSArray arrayWithArray:x->outstandingOperations]) {
     [operation cancel];
     [operation waitUntilFinished];
   }
@@ -153,15 +151,20 @@ static void m4aPlayer_free(t_m4aPlayer *x) {
 }
 
 static void m4aPlayer_add_operation_with_block(t_m4aPlayer *x, void(^b)()) {
-  @autoreleasepool {
-    NSBlockOperation *operation = [NSBlockOperation blockOperationWithBlock:b];
-    [operation setCompletionBlock:^{
-      @synchronized(x->outstandingOperations) { [x->outstandingOperations removeObject:operation]; }
-    }];
-    // syncrhonize the use of x->outstandingOperations as NSMutableSet is not thread-safe
-    @synchronized(x->outstandingOperations) { [x->outstandingOperations addObject:operation]; }
-    [globalOperationQueue addOperation:operation];
+  NSBlockOperation *operation = [NSBlockOperation blockOperationWithBlock:b];
+  // NOTE(mhroth): for whatever reason, this bridge is necessary because using
+  // operation as an NSObject seems to cause memory leaks. Not sure why.
+  void *const op = (__bridge NSBlockOperation*) operation;
+  [operation setCompletionBlock:^{
+    @synchronized(x->outstandingOperations) {
+      [x->outstandingOperations removeObject:op];
+    }
+  }];
+  // syncrhonize the use of x->outstandingOperations as NSMutableSet is not thread-safe
+  @synchronized(x->outstandingOperations) {
+    [x->outstandingOperations addObject:op];
   }
+  [globalOperationQueue addOperation:operation];
 }
 
 // fills the given buffer, restarting the reader if the player should loop.
@@ -213,10 +216,10 @@ static void m4aPlayer_load_buffer_with_loop(t_m4aPlayer *x, NSValidData *buffer)
     buffer.validLength = validLength; // buffer.validLength is only reset when everything is said and done
   }
   
-  if ((buffer.validLength & 0xFFFFFFC0) != buffer.validLength) {
-    post("(m4aPlayer %s %p) A multiple of 64 frames was not produced: %i. Audio glitches will occur.",
-        [[x->songAsset.URL lastPathComponent] cStringUsingEncoding:NSASCIIStringEncoding], x, buffer.validLength);
-  }
+//  if ((buffer.validLength & 0xFFFFFFC0) != buffer.validLength) {
+//    post("(m4aPlayer %s %p) A multiple of 64 frames was not produced: %i. Audio glitches will occur.",
+//        [[x->songAsset.URL lastPathComponent] cStringUsingEncoding:NSASCIIStringEncoding], x, buffer.validLength);
+//  }
 }
 
 static void m4aPlayer_start(t_m4aPlayer *x) {
@@ -351,6 +354,7 @@ static void m4aPlayer_open(t_m4aPlayer *x, t_symbol *s, t_float position) {
         // if the operation hasn't started yet, remove it from the queue.
         // If it is already executing, it will finish
         [operation cancel];
+        NSLog(@"cancelling operation");
       }    
     }
     NSString *path = [NSString stringWithCString:s->s_name encoding:NSASCIIStringEncoding];
@@ -373,9 +377,8 @@ static t_int *m4aPlayer_perform(t_int *w) {
   int n = (int) (w[2]); // number of samples that Pd wants
   t_sample *outL = (t_sample *) w[3]; // the left outlet buffer
   t_sample *outR = (t_sample *) w[4]; // the right outlet buffer
-  
+
   if (x->isPlaying && x->isLoaded) {
-    
     // if there are NOT enough samples remaining in the current buffer to fill Pd's request
     if (x->bufferIndex + n*x->numChannels > x->currentBuffer.validLength/BYTES_PER_SAMPLE) {
       
