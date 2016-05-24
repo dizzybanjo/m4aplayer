@@ -63,7 +63,7 @@ typedef struct _m4aPlayer {
   t_outlet *signal_right_outlet;         // outlet 1
   t_outlet *message_done_playing_outlet; // outlet 2
   t_outlet *message_done_loading_outlet; // outlet 3
-  
+
   NSValidData *currentBuffer;
   NSValidData *bufferA;
   NSValidData *bufferB;
@@ -71,18 +71,18 @@ typedef struct _m4aPlayer {
   unsigned int assetFrameIndex; // frame index in current asset (where in the song are we)
   AVURLAsset *songAsset;
   AVAssetReader *assetReader;
-  
+
   NSString *basePath;
-  
+
   // the set of currently queued or executing operations on behalf of this object
   NSMutableArray *outstandingOperations;
-  
+
   int numChannels;
   BOOL isPlaying;
   BOOL shouldLoop;
   BOOL isLoaded;
   BOOL shouldReprimeOnFinish;
-  
+
 } t_m4aPlayer;
 
 // forward declaration
@@ -95,21 +95,21 @@ static void *m4aPlayer_new(t_symbol *s, int argc, t_atom *argv) {
   x->signal_right_outlet = outlet_new(&x->x_obj, &s_signal);
   x->message_done_playing_outlet = outlet_new(&x->x_obj, &s_bang);
   x->message_done_loading_outlet = outlet_new(&x->x_obj, &s_bang);
-  
+
   x->numChannels = 0;
   x->isPlaying = NO;
   x->songAsset = nil;
   x->assetReader = nil;
   x->shouldLoop = NO;
   x->shouldReprimeOnFinish = YES;
-  
+
   @autoreleasepool {
     x->basePath = [[NSString stringWithCString:canvas_getcurrentdir()->s_name encoding:NSASCIIStringEncoding] retain];
-    
+
     x->bufferA = nil;
     x->bufferB = nil;
     x->currentBuffer = nil;
-    
+
 //    x->outstandingOperations = [[NSMutableSet alloc] init];
     x->outstandingOperations = [[NSMutableArray alloc] init];
 
@@ -127,7 +127,7 @@ static void *m4aPlayer_new(t_symbol *s, int argc, t_atom *argv) {
       m4aPlayer_open_synchronous(x, argString, 0.0f);
     }
   }
-  
+
   return x;
 }
 
@@ -173,7 +173,7 @@ static void m4aPlayer_load_buffer_with_loop(t_m4aPlayer *x, NSValidData *buffer)
   AVAssetReaderTrackOutput *trackOutput = (AVAssetReaderTrackOutput *) [x->assetReader.outputs objectAtIndex:0];
   size_t maxBytesRead = 0; // the largest number of bytes ever read
                            // used to ensure that the data buffer is never overflowed
-  size_t validLength = 0; // the current number of bytes decoded
+  size_t validLength = 0;  // the current number of bytes decoded
 
   while ((validLength+maxBytesRead) <= [buffer length]) {
     if (x->assetReader.status == AVAssetReaderStatusReading) {
@@ -212,10 +212,10 @@ static void m4aPlayer_load_buffer_with_loop(t_m4aPlayer *x, NSValidData *buffer)
 //          (((float) validLength)/((float)(BYTES_PER_SAMPLE * x->numChannels)))/sys_getsr(),
 //          DEFAULT_BUFFER_DURATION_SEC);
     }
-    
+
     buffer.validLength = validLength; // buffer.validLength is only reset when everything is said and done
   }
-  
+
 //  if ((buffer.validLength & 0xFFFFFFC0) != buffer.validLength) {
 //    post("(m4aPlayer %s %p) A multiple of 64 frames was not produced: %i. Audio glitches will occur.",
 //        [[x->songAsset.URL lastPathComponent] cStringUsingEncoding:NSASCIIStringEncoding], x, buffer.validLength);
@@ -241,16 +241,16 @@ static void m4aPlayer_prime_synchronous(t_m4aPlayer *x, float f) {
     // input must be positive
     int sampleIndex = (int) ((fmaxf(0.0f, f) / 1000.0f) * (float) sampleRate);
     x->assetFrameIndex = (unsigned int) sampleIndex;
-    
+
     // clear the previous AVAssetReader
     // cancelling a reader which is not reading is an error?
     if (x->assetReader.status == AVAssetReaderStatusReading) [x->assetReader cancelReading];
     [x->assetReader release]; x->assetReader = nil;
-    
+
     // get audio metadata
     NSArray *tracks = [x->songAsset tracksWithMediaType:AVMediaTypeAudio];
     // this happens when the iThing is syncing with iTunes and/or the iPod library is accessed in another way.
-    if ([tracks count] == 0) { 
+    if ([tracks count] == 0) {
       post("(m4aPlayer %s %p): song asset has no track in it.",
           [[x->songAsset.URL lastPathComponent] cStringUsingEncoding:NSASCIIStringEncoding], x);
       return;
@@ -267,9 +267,9 @@ static void m4aPlayer_prime_synchronous(t_m4aPlayer *x, float f) {
       [x->bufferA release];
       [x->bufferB release];
       x->bufferA = [[NSValidData alloc] initWithBytesNoCopy:malloc(bytesPerBuffer) length:bytesPerBuffer];
-      x->bufferB = [[NSValidData alloc] initWithBytesNoCopy:malloc(bytesPerBuffer) length:bytesPerBuffer];      
+      x->bufferB = [[NSValidData alloc] initWithBytesNoCopy:malloc(bytesPerBuffer) length:bytesPerBuffer];
     }
-    
+
     // initialise asset reader
     NSError *error = nil;
     x->assetReader = [[AVAssetReader assetReaderWithAsset:x->songAsset error:&error] retain];
@@ -278,10 +278,10 @@ static void m4aPlayer_prime_synchronous(t_m4aPlayer *x, float f) {
           [[x->songAsset.URL lastPathComponent] cStringUsingEncoding:NSASCIIStringEncoding], x, error);
       return;
     }
-    
+
     // start reading from a given time to the end
     x->assetReader.timeRange = CMTimeRangeMake(CMTimeMake(sampleIndex, sampleRate), kCMTimePositiveInfinity);
-    
+
     // decode the asset to kAudioFormatLinearPCM
     AVAssetReaderOutput *assetReaderOutput = [AVAssetReaderTrackOutput
         assetReaderTrackOutputWithTrack:[x->songAsset.tracks objectAtIndex:0]
@@ -326,7 +326,7 @@ static void m4aPlayer_open_synchronous(t_m4aPlayer *x, NSString *path, float pos
     if ([songURL scheme] == nil) {
       songURL = [NSURL fileURLWithPath:([path isAbsolutePath] ? path : [x->basePath stringByAppendingPathComponent:path])];
     }
-    
+
 //    post("(m4aPlayer %s %p) loading file from URL: %s",
 //        [[x->songAsset.URL lastPathComponent] cStringUsingEncoding:NSASCIIStringEncoding],
 //        x, [[songURL description] cStringUsingEncoding:NSASCIIStringEncoding]);
@@ -340,7 +340,7 @@ static void m4aPlayer_open_synchronous(t_m4aPlayer *x, NSString *path, float pos
     x->assetFrameIndex = 0;
     x->isLoaded = YES;
   }
-  
+
   // send a bang indicating that the object is finished loading
   outlet_bang(x->message_done_loading_outlet);
 }
@@ -355,7 +355,7 @@ static void m4aPlayer_open(t_m4aPlayer *x, t_symbol *s, t_float position) {
         // If it is already executing, it will finish
         [operation cancel];
         NSLog(@"cancelling operation");
-      }    
+      }
     }
     NSString *path = [NSString stringWithCString:s->s_name encoding:NSASCIIStringEncoding];
     m4aPlayer_add_operation_with_block(x, ^{
@@ -381,7 +381,7 @@ static t_int *m4aPlayer_perform(t_int *w) {
   if (x->isPlaying && x->isLoaded) {
     // if there are NOT enough samples remaining in the current buffer to fill Pd's request
     if (x->bufferIndex + n*x->numChannels > x->currentBuffer.validLength/BYTES_PER_SAMPLE) {
-      
+
       // switch to the alternate buffer and refill the empty one
       NSValidData *buffer = x->currentBuffer;
       m4aPlayer_switch_buffers(x);
@@ -391,11 +391,11 @@ static t_int *m4aPlayer_perform(t_int *w) {
         // load the next buffer in the background
         m4aPlayer_load_buffer_with_loop(x, buffer);
       });
-      
+
       // if there are no samples left in the new buffer, stop playing
       if (x->currentBuffer.validLength == 0) {
         x->isPlaying = NO; // stop playing
-        
+
         // reset the asset frame index, though it will be reset again by m4aPlayer_prime_synchronous
         x->assetFrameIndex = 0;
         if (x->shouldReprimeOnFinish) {
@@ -406,12 +406,12 @@ static t_int *m4aPlayer_perform(t_int *w) {
             x->bufferIndex = 0;
             m4aPlayer_load_buffer_with_loop(x, x->bufferA);
             m4aPlayer_load_buffer_with_loop(x, x->bufferB);
-          });         
+          });
         }
-        
+
         // output a bang from the third outlet to indicate that the end of the asset has been reached
         outlet_bang(x->message_done_playing_outlet);
-        
+
         // clear the outputs and return
         vDSP_vclr(outL, 1, n);
         vDSP_vclr(outR, 1, n);
