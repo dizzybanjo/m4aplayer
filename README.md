@@ -32,8 +32,13 @@ ANDROID INSTRUCTIONS :
 - libm4aPlayer.so` needs to be packaged in the apk
 - this is a armeabi-v7a build - let us know if you need any builds for different architectures
 - put this in Android.mk :
+
 include $(CLEAR_VARS)
+
 LOCAL_MODULE := m4aPlayer
+
 LOCAL_SRC_FILES := libs/$(TARGET_ARCH_ABI)/libm4aPlayer.so
+
 include $(PREBUILT_SHARED_LIBRARY)
+
 - Depending on your configuration you may need to update your `Application.mk` as well.
