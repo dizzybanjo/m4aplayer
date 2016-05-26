@@ -94,7 +94,7 @@ static void *m4aPlayer_new(t_symbol *s, int argc, t_atom *argv) {
   x->signal_left_outlet = outlet_new(&x->x_obj, &s_signal);
   x->signal_right_outlet = outlet_new(&x->x_obj, &s_signal);
   x->message_done_playing_outlet = outlet_new(&x->x_obj, &s_bang);
-  x->message_done_loading_outlet = outlet_new(&x->x_obj, &s_bang);
+  x->message_done_loading_outlet = outlet_new(&x->x_obj, &s_float);
 
   x->numChannels = 0;
   x->isPlaying = NO;
@@ -327,6 +327,9 @@ static void m4aPlayer_open_synchronous(t_m4aPlayer *x, NSString *path, float pos
       songURL = [NSURL fileURLWithPath:([path isAbsolutePath] ? path : [x->basePath stringByAppendingPathComponent:path])];
     }
 
+    // if the URL is not accessible, bail
+    if (![songURL checkResourceIsReachableAndReturnError:nil]) return;
+
 //    post("(m4aPlayer %s %p) loading file from URL: %s",
 //        [[x->songAsset.URL lastPathComponent] cStringUsingEncoding:NSASCIIStringEncoding],
 //        x, [[songURL description] cStringUsingEncoding:NSASCIIStringEncoding]);
@@ -341,8 +344,10 @@ static void m4aPlayer_open_synchronous(t_m4aPlayer *x, NSString *path, float pos
     x->isLoaded = YES;
   }
 
+  float songDurationMs = 1000.0f * x->songAsset.duration.value / x->songAsset.duration.timescale;
+
   // send a bang indicating that the object is finished loading
-  outlet_bang(x->message_done_loading_outlet);
+  outlet_float(x->message_done_loading_outlet, songDurationMs);
 }
 
 static void m4aPlayer_open(t_m4aPlayer *x, t_symbol *s, t_float position) {
