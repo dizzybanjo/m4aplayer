@@ -1,0 +1,11 @@
+#N canvas 11 456 268 177 10;
+#X declare -path .;
+#X declare -path abs;
+#X declare -path music;
+#N canvas 0 22 450 300 declare 0;
+#X obj 63 33 declare -path .;
+#X obj 65 69 declare -path abs;
+#X obj 68 94 declare -path music;
+#X restore 151 50 pd declare;
+#X obj 27 79 music \$0;
+#X obj 28 48 timebase \$0 120;
