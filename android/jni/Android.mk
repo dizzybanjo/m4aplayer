@@ -22,7 +22,7 @@ $(LOCAL_PATH)/src/HvLightPipe.c
 LOCAL_LDLIBS := -llog -lOpenSLES
 LOCAL_SHARED_LIBRARIES = pd
 TARGET_PLATFORM := android-9
-TARGET_ARCH_ABI := armeabi-v7a
+TARGET_ARCH_ABI := armeabi-v7a x86
 LOCAL_ARM_NEON := true
 LOCAL_ARM_MODE := arm
 include $(BUILD_SHARED_LIBRARY)
