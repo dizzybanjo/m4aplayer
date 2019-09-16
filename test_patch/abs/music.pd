@@ -1,13 +1,24 @@
-#N canvas 435 370 450 300 10;
-#X obj 110 257 dac~;
-#X obj 111 27 r \$1-tick;
+#N canvas 302 239 687 529 10;
+#X obj 106 377 dac~;
+#X obj 112 18 r \$1-tick;
 #X msg 112 122 start;
 #X obj 111 213 musicPlayer;
 #X msg 155 122 ../music/loop.m4a;
 #X msg 155 183 ../music/loop.m4a;
 #X obj 154 160 loadbang;
 #X obj 111 71 sel 0 32;
-#X obj 111 49 mod 64;
+#X obj 112 40 mod 64;
+#X obj 316 318 m4aPlayer;
+#X msg 332 201 start;
+#X msg 287 144 open ../music/loop.m4a;
+#X msg 353 224 pause;
+#X msg 305 172 prime 1000;
+#X msg 415 246 loop \$1;
+#X obj 418 225 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 0
+1;
+#X msg 475 275 reprime \$1;
+#X obj 478 253 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 1
+1;
 #X connect 1 0 8 0;
 #X connect 2 0 3 0;
 #X connect 3 0 0 0;
@@ -18,3 +29,13 @@
 #X connect 7 0 2 0;
 #X connect 7 1 4 0;
 #X connect 8 0 7 0;
+#X connect 9 0 0 0;
+#X connect 9 1 0 1;
+#X connect 10 0 9 0;
+#X connect 11 0 9 0;
+#X connect 12 0 9 0;
+#X connect 13 0 9 0;
+#X connect 14 0 9 0;
+#X connect 15 0 14 0;
+#X connect 16 0 9 0;
+#X connect 17 0 16 0;
